@@ -20,10 +20,14 @@
     <Compile Include="Basic\BlockTokens\TwoPhaseBlockToken.cs" />
     <Compile Include="Basic\InlineRules\MarkdownCommentInlineRule.cs" />
     <Compile Include="Basic\InlineRules\MarkdownEscapedTextInlineRule.cs" />
+    <Compile Include="Basic\InlineRules\MarkdownCodeElementInlineRule.cs" />
     <Compile Include="Basic\MarkdownRawToken.cs" />
     <Compile Include="Basic\BlockTokens\MarkdownNonParagraphBlockToken.cs" />
     <Compile Include="Contexts\MarkdownInlineContext.cs" />
     <Compile Include="GfmEngineBuilder.cs" />
+    <Compile Include="Gfm\GfmStrongEmInlineRule.cs" />
+    <Compile Include="Gfm\GfmStrongInlineRule.cs" />
+    <Compile Include="Gfm\GfmEmInlineRule.cs" />
     <Compile Include="Gfm\GfmDelInlineRule.cs" />
     <Compile Include="Gfm\GfmDelInlineToken.cs" />
     <Compile Include="Gfm\GfmEscapeInlineRule.cs" />

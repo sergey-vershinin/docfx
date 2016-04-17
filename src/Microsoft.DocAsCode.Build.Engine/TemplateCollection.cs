@@ -11,15 +11,15 @@ namespace Microsoft.DocAsCode.Build.Engine
     using Microsoft.DocAsCode.Common;
     using Microsoft.DocAsCode.Utility;
 
-    public class TemplateCollection : Dictionary<string, List<Template>>
+    public class TemplateCollection : Dictionary<string, TemplateBundle>
     {
-        private List<Template> _defaultTemplate = null;
+        private TemplateBundle _defaultTemplate = null;
 
-        public new List<Template> this[string key]
+        public new TemplateBundle this[string key]
         {
             get
             {
-                List<Template> template;
+                TemplateBundle template;
                 if (key != null && this.TryGetValue(key, out template))
                 {
                     return template;
@@ -33,16 +33,20 @@ namespace Microsoft.DocAsCode.Build.Engine
             }
         }
 
-        public TemplateCollection(ResourceCollection provider) : base(ReadTemplate(provider), StringComparer.OrdinalIgnoreCase)
+        public TemplateCollection(ResourceCollection provider, int maxParallelism) : base(ReadTemplate(provider, maxParallelism), StringComparer.OrdinalIgnoreCase)
         {
             base.TryGetValue("default", out _defaultTemplate);
         }
 
-        private static Dictionary<string, List<Template>> ReadTemplate(ResourceCollection resource)
+        private static Dictionary<string, TemplateBundle> ReadTemplate(ResourceCollection resource, int maxParallelism)
         {
             // type <=> list of template with different extension
             var dict = new Dictionary<string, List<Template>>(StringComparer.OrdinalIgnoreCase);
-            if (resource == null || resource.IsEmpty) return dict;
+            if (resource == null || resource.IsEmpty)
+            {
+                return new Dictionary<string, TemplateBundle>();
+            }
+
             // Template file ends with .tmpl(Mustache) or .liquid(Liquid)
             // Template file naming convention: {template file name}.{file extension}.(tmpl|liquid)
             var templates = resource.GetResources(@".*\.(tmpl|liquid|js)$").ToList();
@@ -69,7 +73,7 @@ namespace Microsoft.DocAsCode.Build.Engine
                         Logger.Log(LogLevel.Warning, $"Multiple template scripts for type '{group.Key}'(case insensitive) are found, the one from '{currentScripts[0].Key}' is taken.");
                     }
 
-                    var template = new Template(currentTemplate.Value, currentTemplate.Key, currentScript.Value, resource);
+                    var template = new Template(currentTemplate.Value, currentTemplate.Key, currentScript.Value, resource, maxParallelism);
                     List<Template> templateList;
                     if (dict.TryGetValue(template.Type, out templateList))
                     {
@@ -82,7 +86,7 @@ namespace Microsoft.DocAsCode.Build.Engine
                 }
             }
 
-            return dict;
+            return dict.ToDictionary(s => s.Key, s => new TemplateBundle(s.Key, s.Value));
         }
     }
 }

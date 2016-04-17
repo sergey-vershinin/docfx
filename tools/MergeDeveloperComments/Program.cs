@@ -11,8 +11,9 @@ namespace Microsoft.DocAsCode.MergeDeveloperComments
     using System.Xml;
 
     using Microsoft.DocAsCode.Common;
-    using Microsoft.DocAsCode.EntityModel;
-    using Microsoft.DocAsCode.EntityModel.ViewModels;
+    using Microsoft.DocAsCode.DataContracts.Common;
+    using Microsoft.DocAsCode.DataContracts.ManagedReference;
+    using Microsoft.DocAsCode.Metadata.ManagedReference;
 
     internal sealed class Program : IDisposable
     {
@@ -422,6 +423,17 @@ namespace Microsoft.DocAsCode.MergeDeveloperComments
                     foreach (var p in item.Syntax.Parameters)
                     {
                         var description = commentModel.GetParameter(p.Name);
+                        if (!string.IsNullOrEmpty(description))
+                        {
+                            p.Description = description;
+                        }
+                    }
+                }
+                if (item.Syntax.TypeParameters != null)
+                {
+                    foreach (var p in item.Syntax.TypeParameters)
+                    {
+                        var description = commentModel.GetTypeParameter(p.Name);
                         if (!string.IsNullOrEmpty(description))
                         {
                             p.Description = description;

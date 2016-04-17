@@ -9,12 +9,15 @@ namespace Microsoft.DocAsCode.SubCommands
     using System.IO;
     using System.Reflection;
     using System.Runtime.Remoting.Lifetime;
-    using System.Runtime.Serialization.Formatters.Binary;
 
     using Microsoft.DocAsCode;
+    using Microsoft.DocAsCode.Build.ConceptualDocuments;
+    using Microsoft.DocAsCode.Build.Engine;
+    using Microsoft.DocAsCode.Build.ManagedReference;
+    using Microsoft.DocAsCode.Build.ResourceFiles;
+    using Microsoft.DocAsCode.Build.RestApi;
+    using Microsoft.DocAsCode.Build.TableOfContents;
     using Microsoft.DocAsCode.Common;
-    using Microsoft.DocAsCode.EntityModel;
-    using Microsoft.DocAsCode.EntityModel.Builders;
     using Microsoft.DocAsCode.Exceptions;
     using Microsoft.DocAsCode.Plugins;
     using Microsoft.DocAsCode.Utility;
@@ -96,6 +99,12 @@ namespace Microsoft.DocAsCode.SubCommands
 
         private static IEnumerable<Assembly> LoadPluginAssemblies(string pluginDirectory)
         {
+            yield return typeof(ConceptualDocumentProcessor).Assembly;
+            yield return typeof(ManagedReferenceDocumentProcessor).Assembly;
+            yield return typeof(ResourceDocumentProcessor).Assembly;
+            yield return typeof(RestApiDocumentProcessor).Assembly;
+            yield return typeof(TocDocumentProcessor).Assembly;
+
             if (pluginDirectory == null || !Directory.Exists(pluginDirectory))
             {
                 yield break;
@@ -111,6 +120,12 @@ namespace Microsoft.DocAsCode.SubCommands
                 string assemblyName = Path.GetFileNameWithoutExtension(assemblyFile);
                 if (!string.IsNullOrEmpty(assemblyName))
                 {
+                    if (assemblyName == "Microsoft.DocAsCode.EntityModel")
+                    {
+                        // work around, don't load assembly Microsoft.DocAsCode.EntityModel.
+                        Logger.LogWarning("Skipping assembly: Microsoft.DocAsCode.EntityModel.");
+                        continue;
+                    }
                     try
                     {
                         assembly = Assembly.Load(assemblyName);
@@ -145,6 +160,12 @@ namespace Microsoft.DocAsCode.SubCommands
                 GetFilesFromFileMapping(
                     GlobUtility.ExpandFileMapping(baseDirectory, config.ExternalReference))
                 .ToImmutableArray();
+
+            if (config.XRefMaps != null)
+            {
+                parameters.XRefMaps = config.XRefMaps.ToImmutableArray();
+            }
+
             parameters.Files = GetFileCollectionFromFileMapping(
                 baseDirectory,
                 GlobUtility.ExpandFileMapping(baseDirectory, config.Content),
@@ -170,6 +191,14 @@ namespace Microsoft.DocAsCode.SubCommands
 
             parameters.ApplyTemplateSettings = applyTemplateSettings;
             parameters.TemplateManager = templateManager;
+            if (config.MaxParallelism == null || config.MaxParallelism.Value <= 0)
+            {
+                parameters.MaxParallelism = Environment.ProcessorCount;
+            }
+            else
+            {
+                parameters.MaxParallelism = config.MaxParallelism.Value;
+            }
             return parameters;
         }
 

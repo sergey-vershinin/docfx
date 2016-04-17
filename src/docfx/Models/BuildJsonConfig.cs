@@ -31,6 +31,9 @@ namespace Microsoft.DocAsCode
         [JsonProperty("externalReference")]
         public FileMapping ExternalReference { get; set; }
 
+        [JsonProperty("xrefMaps")]
+        public ListWithStringFallback XRefMaps { get; set; }
+
         [JsonProperty("dest")]
         public string Destination { get; set; }
 
@@ -77,5 +80,8 @@ namespace Microsoft.DocAsCode
 
         [JsonProperty("dryRun")]
         public bool? DryRun { get; set; }
+
+        [JsonProperty("maxParallelism")]
+        public int? MaxParallelism { get; set; }
     }
 }

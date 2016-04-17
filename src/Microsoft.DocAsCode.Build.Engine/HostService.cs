@@ -102,16 +102,17 @@ namespace Microsoft.DocAsCode.Build.Engine
                 node.Remove();
             }
             var linkToFiles = new HashSet<string>();
-            foreach (var link in from n in doc.DocumentNode.Descendants()
-                                 where !string.Equals(n.Name, "xref", StringComparison.OrdinalIgnoreCase)
-                                 from attr in n.Attributes
-                                 where string.Equals(attr.Name, "src", StringComparison.OrdinalIgnoreCase) ||
-                                       string.Equals(attr.Name, "href", StringComparison.OrdinalIgnoreCase)
-                                 where !string.IsNullOrWhiteSpace(attr.Value)
-                                 select attr)
+            foreach (var pair in (from n in doc.DocumentNode.Descendants()
+                                  where !string.Equals(n.Name, "xref", StringComparison.OrdinalIgnoreCase)
+                                  from attr in n.Attributes
+                                  where string.Equals(attr.Name, "src", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(attr.Name, "href", StringComparison.OrdinalIgnoreCase)
+                                  where !string.IsNullOrWhiteSpace(attr.Value)
+                                  select new { Node = n, Attr = attr }).ToList())
             {
                 string linkFile;
                 string anchor = null;
+                var link = pair.Attr;
                 if (PathUtility.IsRelativePath(link.Value))
                 {
                     var index = link.Value.IndexOf('#');
@@ -130,7 +131,12 @@ namespace Microsoft.DocAsCode.Build.Engine
                     }
                     var path = (RelativePath)ft.File + (RelativePath)linkFile;
                     var file = path.GetPathFromWorkingFolder();
-                    link.Value = file + anchor;
+                    link.Value = file;
+                    if (!string.IsNullOrEmpty(anchor) &&
+                        string.Equals(link.Name, "href", StringComparison.OrdinalIgnoreCase))
+                    {
+                        pair.Node.SetAttributeValue("anchor", anchor);
+                    }
                     linkToFiles.Add(HttpUtility.UrlDecode(file));
                 }
             }
@@ -151,22 +157,22 @@ namespace Microsoft.DocAsCode.Build.Engine
 
         public void LogVerbose(string message, string file, string line)
         {
-            Logger.LogVerbose(message, "Build Document - Plugin", file, line);
+            Logger.LogVerbose(message, file: file, line: line);
         }
 
         public void LogInfo(string message, string file, string line)
         {
-            Logger.LogInfo(message, "Build Document - Plugin", file, line);
+            Logger.LogInfo(message, file: file, line: line);
         }
 
         public void LogWarning(string message, string file, string line)
         {
-            Logger.LogWarning(message, "Build Document - Plugin", file, line);
+            Logger.LogWarning(message, file: file, line: line);
         }
 
         public void LogError(string message, string file, string line)
         {
-            Logger.LogError(message, "Build Document - Plugin", file, line);
+            Logger.LogError(message, file: file, line: line);
         }
 
         #endregion
@@ -240,7 +246,7 @@ namespace Microsoft.DocAsCode.Build.Engine
             }
             lock (_syncRoot)
             {
-                var common = e.Original.Select(s=>s.Name).Intersect(e.Current.Select(s => s.Name)).ToList();
+                var common = e.Original.Select(s => s.Name).Intersect(e.Current.Select(s => s.Name)).ToList();
                 foreach (var added in e.Current.Select(s => s.Name).Except(common))
                 {
                     List<FileModel> list;

@@ -39,6 +39,9 @@ namespace Microsoft.DocAsCode
         [OptionList("externalReference", Separator = ',', HelpText = "Specifies external reference files used by content files.")]
         public List<string> ExternalReference { get; set; }
 
+        [OptionList('x', "xref", Separator = ',', HelpText = "Specifies the urls of xrefmap used by content files.")]
+        public List<string> XRefMaps { get; set; }
+
         [OptionList('t', "template", Separator = ',', HelpText = "Specifies the template name to apply to. If not specified, output YAML file will not be transformed.")]
         public List<string> Templates { get; set; }
 
@@ -77,5 +80,8 @@ namespace Microsoft.DocAsCode
 
         [Option("dryRun", HelpText = "If set to true, template will not be actually applied to the documents. This option is always used with --exportRawModel or --exportViewModel is set so that only raw model files or view model files are generated.")]
         public bool DryRun { get; set; }
+
+        [Option("maxParallelism", HelpText = "Set the max parallelism, 0 is auto.")]
+        public int? MaxParallelism { get; set; }
     }
 }

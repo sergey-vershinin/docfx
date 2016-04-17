@@ -6,10 +6,11 @@ namespace Microsoft.DocAsCode.SubCommands
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
 
     using Microsoft.DocAsCode;
+    using Microsoft.DocAsCode.Build.Engine;
     using Microsoft.DocAsCode.Common;
-    using Microsoft.DocAsCode.EntityModel;
     using Microsoft.DocAsCode.Exceptions;
     using Microsoft.DocAsCode.Plugins;
     using Microsoft.DocAsCode.Utility;
@@ -113,39 +114,106 @@ namespace Microsoft.DocAsCode.SubCommands
             config.OutputFolder = options.OutputFolder;
 
             // Override config file with options from command line
-            if (options.Templates != null && options.Templates.Count > 0) config.Templates = new ListWithStringFallback(options.Templates);
+            if (options.Templates != null && options.Templates.Count > 0)
+            {
+                config.Templates = new ListWithStringFallback(options.Templates);
+            }
 
-            if (options.Themes != null && options.Themes.Count > 0) config.Themes = new ListWithStringFallback(options.Themes);
-            if (!string.IsNullOrEmpty(options.OutputFolder)) config.Destination = Path.GetFullPath(Path.Combine(options.OutputFolder, config.Destination ?? string.Empty));
+            if (options.Themes != null && options.Themes.Count > 0)
+            {
+                config.Themes = new ListWithStringFallback(options.Themes);
+            }
+            if (!string.IsNullOrEmpty(options.OutputFolder))
+            {
+                config.Destination = Path.GetFullPath(Path.Combine(options.OutputFolder, config.Destination ?? string.Empty));
+            }
             if (options.Content != null)
             {
-                if (config.Content == null) config.Content = new FileMapping(new FileMappingItem());
-                config.Content.Add(new FileMappingItem() { Files = new FileItems(options.Content), SourceFolder = optionsBaseDirectory });
+                if (config.Content == null)
+                {
+                    config.Content = new FileMapping(new FileMappingItem());
+                }
+                config.Content.Add(
+                    new FileMappingItem
+                    {
+                        Files = new FileItems(options.Content),
+                        SourceFolder = optionsBaseDirectory,
+                    });
             }
             if (options.Resource != null)
             {
-                if (config.Resource == null) config.Resource = new FileMapping(new FileMappingItem());
-                config.Resource.Add(new FileMappingItem() { Files = new FileItems(options.Resource), SourceFolder = optionsBaseDirectory });
+                if (config.Resource == null)
+                {
+                    config.Resource = new FileMapping(new FileMappingItem());
+                }
+                config.Resource.Add(
+                    new FileMappingItem
+                    {
+                        Files = new FileItems(options.Resource),
+                        SourceFolder = optionsBaseDirectory,
+                    });
             }
             if (options.Overwrite != null)
             {
-                if (config.Overwrite == null) config.Overwrite = new FileMapping(new FileMappingItem());
-                config.Overwrite.Add(new FileMappingItem() { Files = new FileItems(options.Overwrite), SourceFolder = optionsBaseDirectory });
+                if (config.Overwrite == null)
+                {
+                    config.Overwrite = new FileMapping(new FileMappingItem());
+                }
+                config.Overwrite.Add(
+                    new FileMappingItem
+                    {
+                        Files = new FileItems(options.Overwrite),
+                        SourceFolder = optionsBaseDirectory,
+                    });
             }
             if (options.ExternalReference != null)
             {
-                if (config.ExternalReference == null) config.ExternalReference = new FileMapping(new FileMappingItem());
-                config.ExternalReference.Add(new FileMappingItem() { Files = new FileItems(options.ExternalReference), SourceFolder = optionsBaseDirectory });
+                if (config.ExternalReference == null)
+                {
+                    config.ExternalReference = new FileMapping(new FileMappingItem());
+                }
+                config.ExternalReference.Add(
+                    new FileMappingItem
+                    {
+                        Files = new FileItems(options.ExternalReference),
+                        SourceFolder = optionsBaseDirectory,
+                    });
             }
 
-            if (options.Serve) config.Serve = options.Serve;
-            if (options.Port.HasValue) config.Port = options.Port.Value.ToString();
+            if (options.XRefMaps != null)
+            {
+                config.XRefMaps =
+                    new ListWithStringFallback(
+                        (config.XRefMaps ?? new ListWithStringFallback())
+                        .Concat(options.XRefMaps)
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Distinct());
+            }
+
+            if (options.Serve)
+            {
+                config.Serve = options.Serve;
+            }
+            if (options.Port.HasValue)
+            {
+                config.Port = options.Port.Value.ToString();
+            }
             config.Force |= options.ForceRebuild;
             config.ExportRawModel |= options.ExportRawModel;
             config.ExportViewModel |= options.ExportViewModel;
-            if (!string.IsNullOrEmpty(options.RawModelOutputFolder)) config.RawModelOutputFolder = Path.GetFullPath(options.RawModelOutputFolder);
-            if (!string.IsNullOrEmpty(options.ViewModelOutputFolder)) config.ViewModelOutputFolder = Path.GetFullPath(options.ViewModelOutputFolder);
+            if (!string.IsNullOrEmpty(options.RawModelOutputFolder))
+            {
+                config.RawModelOutputFolder = Path.GetFullPath(options.RawModelOutputFolder);
+            }
+            if (!string.IsNullOrEmpty(options.ViewModelOutputFolder))
+            {
+                config.ViewModelOutputFolder = Path.GetFullPath(options.ViewModelOutputFolder);
+            }
             config.DryRun |= options.DryRun;
+            if (options.MaxParallelism != null)
+            {
+                config.MaxParallelism = options.MaxParallelism;
+            }
 
             config.FileMetadata = GetFileMetadataFromOption(options.FileMetadataFilePath, config.FileMetadata);
             config.GlobalMetadata = GetGlobalMetadataFromOption(options.GlobalMetadata, options.GlobalMetadataFilePath, config.GlobalMetadata);

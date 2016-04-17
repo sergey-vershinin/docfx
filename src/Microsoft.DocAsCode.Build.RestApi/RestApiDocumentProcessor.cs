@@ -24,6 +24,13 @@ namespace Microsoft.DocAsCode.Build.RestApi
     {
         private const string RestApiDocumentType = "RestApi";
         private const string DocumentTypeKey = "documentType";
+        private static readonly string[] SupportedFileEndings = new string[]
+        {
+           "_swagger2.json",
+           "_swagger.json",
+           ".swagger.json",
+           ".swagger2.json",
+        };
 
         [ImportMany(nameof(RestApiDocumentProcessor))]
         public override IEnumerable<IDocumentBuildStep> BuildSteps { get; set; }
@@ -35,10 +42,7 @@ namespace Microsoft.DocAsCode.Build.RestApi
             switch (file.Type)
             {
                 case DocumentType.Article:
-                    if (file.File.EndsWith("_swagger2.json", StringComparison.OrdinalIgnoreCase) ||
-                        file.File.EndsWith("_swagger.json", StringComparison.OrdinalIgnoreCase) ||
-                        file.File.EndsWith(".swagger.json", StringComparison.OrdinalIgnoreCase) ||
-                        file.File.EndsWith(".swagger2.json", StringComparison.OrdinalIgnoreCase))
+                    if (IsSupportedFile(file.File))
                     {
                         return ProcessingPriority.Normal;
                     }
@@ -73,7 +77,7 @@ namespace Microsoft.DocAsCode.Build.RestApi
 
                     swagger.Metadata = MergeMetadata(swagger.Metadata, metadata);
                     var vm = RestApiItemViewModel.FromSwaggerModel(swagger);
-                    var displayLocalPath = repoInfo?.RelativePath ?? Path.Combine(file.BaseDir, file.File).ToDisplayPath();
+                    var displayLocalPath = repoInfo?.RelativePath ?? filePath.ToDisplayPath();
                     return new FileModel(file, vm, serializer: new BinaryFormatter())
                     {
                         Uids = new UidDefinition[] { new UidDefinition(vm.Uid, displayLocalPath) }.Concat(from item in vm.Children select new UidDefinition(item.Uid, displayLocalPath)).ToImmutableArray(),
@@ -105,16 +109,33 @@ namespace Microsoft.DocAsCode.Build.RestApi
             {
                 documentType = documentTypeObject as string;
             }
+
+            model.File = ChangeFileExtension(model.File);
             return new SaveResult
             {
                 DocumentType = documentType ?? RestApiDocumentType,
-                ModelFile = model.File,
+                FileWithoutExtension = Path.ChangeExtension(model.File, null),
                 LinkToFiles = ((HashSet<string>)model.Properties.LinkToFiles).ToImmutableArray(),
                 LinkToUids = ((HashSet<string>)model.Properties.LinkToUids).ToImmutableHashSet(),
             };
         }
 
         #region Private methods
+
+        private bool IsSupportedFile(string file)
+        {
+            return SupportedFileEndings.Any(s => IsSupported(file, s));
+        }
+
+        private bool IsSupported(string file, string fileEnding)
+        {
+            return file.EndsWith(fileEnding, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string ChangeFileExtension(string file)
+        {
+            return file.Substring(0, file.Length - SupportedFileEndings.First(s => IsSupported(file, s)).Length) + ".json";
+        }
 
         private static Dictionary<string, object> MergeMetadata(IDictionary<string, object> item, IDictionary<string, object> overwriteItems)
         {

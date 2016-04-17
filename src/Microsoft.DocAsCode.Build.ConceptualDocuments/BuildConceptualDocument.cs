@@ -37,6 +37,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
             var result = host.Markup(markdown, model.FileAndType);
 
             var htmlInfo = SeperateHtml(result.Html);
+            model.Properties.IsUserDefinedTitle = false;
             content[Constants.PropertyName.Title] = htmlInfo.Title;
             content["rawTitle"] = htmlInfo.RawTitle;
             content[ConceptualKey] = htmlInfo.Content;
@@ -61,6 +62,10 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                         {
                             model.DocumentType = item.Value as string;
                         }
+                        if (item.Key == Constants.PropertyName.Title)
+                        {
+                            model.Properties.IsUserDefinedTitle = true;
+                        }
                     }
                 }
             }
@@ -76,7 +81,6 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                     Href = ((RelativePath)model.File).GetPathFromWorkingFolder()
                 };
             }
-            model.File = Path.ChangeExtension(model.File, ".json");
         }
 
         private static string TitleThumbnail(string title, int maxLength)

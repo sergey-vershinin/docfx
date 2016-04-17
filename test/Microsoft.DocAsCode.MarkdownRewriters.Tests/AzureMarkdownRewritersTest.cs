@@ -255,6 +255,26 @@ This is azure include block.
 
         [Fact]
         [Trait("Related", "AzureMarkdownRewriters")]
+        [Trait("Bug 551844", "Rewriter issue")]
+        public void TestAzureMarkdownRewriters_ListRewriterBug()
+        {
+            var source = @"5. Open a command prompt with administrative permissions, and run the following command:
+
+            gpupdate /force
+6. Restart the computer.
+";
+            var expected = @"1. Open a command prompt with administrative permissions, and run the following command:
+   
+            gpupdate /force
+2. Restart the computer.
+
+";
+            var result = AzureMarked.Markup(source);
+            Assert.Equal(expected.Replace("\r\n", "\n"), result);
+        }
+
+        [Fact]
+        [Trait("Related", "AzureMarkdownRewriters")]
         public void TestAzureMarkdownRewriters_ListWithInlineToken()
         {
             var source = @"Hello world
@@ -273,10 +293,11 @@ This is azure include block.
             var expected = @"Hello world
 
 * list *system*
-this should be same line with the above one
-
+  this should be same line with the above one
+  
   this should be another line
-
+  
+  
 * list item2
 * list item3
 * list item4
@@ -924,7 +945,7 @@ ms.author: rogardle
                 };
             var sourceFilePath = @"c:\root\parent\folder2\subfolder1\source.md";
             var source = @"[azure file link](unique.md#bookmark_test)";
-            var expected = @"[azure file link](https://docsmsftstage.azurewebsites.net/parent/unique.html#bookmark_test)
+            var expected = @"[azure file link](https://docsmsftstage.azurewebsites.net/parent/unique#bookmark_test)
 
 ";
 
@@ -1019,6 +1040,43 @@ ms.author: rogardle
             var expected = @"> [Just a test for blockquote]
 > 
 > 
+
+";
+
+            var result = AzureMarked.Markup(source);
+            Assert.Equal(expected.Replace("\r\n", "\n"), result);
+        }
+
+        [Fact]
+        [Trait("Related", "AzureMarkdownRewriters")]
+        public void TestAzureMarkdownRewriters_NestedList()
+        {
+            var source = @"* Option 1: **Unregister a Windows 8.1 domain joined device using PC Settings**
+  1. On the Windows 8.1 device, navigate to **PC Settings** > **Network** > **Workplace**
+  2. Select **Leave**.
+This process must be repeated for each domain user that has signed into the machine and has been automatically workplace joined.
+
+* Option 2: Unregister a Windows 8.1 domain joined device using a script
+  	1. Open a command prompt on the Windows 8.1 machine and execute the following command:
+   ` %SystemRoot%\System32\AutoWorkplace.exe leave`
+   
+This command must be run in the context of each domain user that has signed into the machine.";
+
+            var expected = @"* Option 1: **Unregister a Windows 8.1 domain joined device using PC Settings**
+  
+  1. On the Windows 8.1 device, navigate to **PC Settings** > **Network** > **Workplace**
+  2. Select **Leave**.
+     This process must be repeated for each domain user that has signed into the machine and has been automatically workplace joined.
+  
+  
+* Option 2: Unregister a Windows 8.1 domain joined device using a script
+  
+      1. Open a command prompt on the Windows 8.1 machine and execute the following command:
+   ` %SystemRoot%\System32\AutoWorkplace.exe leave`
+  
+  
+
+This command must be run in the context of each domain user that has signed into the machine.
 
 ";
 

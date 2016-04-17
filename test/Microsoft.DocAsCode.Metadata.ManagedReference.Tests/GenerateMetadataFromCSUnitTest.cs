@@ -4,6 +4,7 @@
 namespace Microsoft.DocAsCode.Metadata.ManagedReference.Tests
 {
     using System.Collections.Generic;
+    using System.ComponentModel;
     using System.IO;
     using System.Linq;
     using System.Reflection;
@@ -196,7 +197,7 @@ namespace Test1
                 Assert.Equal("Test1.Class1<T>.Event1", event1.DisplayQualifiedNames.First().Value);
                 Assert.Equal("Test1.Class1`1.Event1", event1.Name);
                 Assert.Null(event1.Syntax.Parameters);
-                Assert.Null(event1.Syntax.Return);
+                Assert.Equal("EventHandler", event1.Syntax.Return.Type);
                 Assert.Equal("public event EventHandler Event1", event1.Syntax.Content[SyntaxLanguage.CSharp]);
                 Assert.Equal(new[] { "public" }, event1.Modifiers[SyntaxLanguage.CSharp]);
             }
@@ -311,7 +312,7 @@ namespace Test1
                 Assert.Equal("Test1.IFoo.FooBar", @event.Name);
                 Assert.Equal("event EventHandler FooBar", @event.Syntax.Content[SyntaxLanguage.CSharp]);
                 Assert.Null(@event.Syntax.Parameters);
-                Assert.Null(@event.Syntax.Return);
+                Assert.Equal("EventHandler", @event.Syntax.Return.Type);
                 Assert.Equal(new string[0], @event.Modifiers[SyntaxLanguage.CSharp]);
             }
         }
@@ -1278,7 +1279,7 @@ namespace Test1
     {
         public volatile int X;
         protected static readonly Foo<T> Y = null;
-        protected internal const string Z = "";
+        protected internal const string Z = """";
     }
     public enum Bar
     {
@@ -1316,7 +1317,7 @@ namespace Test1
                 Assert.Equal("Z", field.DisplayNames[SyntaxLanguage.CSharp]);
                 Assert.Equal("Test1.Foo<T>.Z", field.DisplayQualifiedNames[SyntaxLanguage.CSharp]);
                 Assert.Equal("Test1.Foo`1.Z", field.Name);
-                Assert.Equal("protected const string Z", field.Syntax.Content[SyntaxLanguage.CSharp]);
+                Assert.Equal("protected const string Z = \"\"", field.Syntax.Content[SyntaxLanguage.CSharp]);
                 Assert.Equal(new[] { "protected", "const" }, field.Modifiers[SyntaxLanguage.CSharp]);
             }
             {
@@ -2220,6 +2221,144 @@ public object Property
 }", property.Syntax.Content[SyntaxLanguage.CSharp]);
         }
 
+        [Fact]
+        [Trait("Related", "Filter")]
+        public void TestGenereateMetadataAsyncWithFilterConfig()
+        {
+            string code = @"
+using System;
+using System.ComponentModel;
+
+namespace Test1
+{
+    /// <summary>
+    /// This is a test
+    /// </summary>
+    /// <seealso cref=""Func1(int)""/>
+    [Serializable]
+    public class Class1
+    {
+        /// <summary>
+        /// This is a function
+        /// </summary>
+        /// <param name=""i"">This is a param as <see cref=""int""/></param>
+        /// <seealso cref=""int""/>
+        public void Func1(int i)
+        {
+            return;
+        }
+    }
+
+    namespace Test2
+    {
+        public class Class2
+        {
+        }
+    }
+    
+    public class Class3
+    {
+        public int A { get; set; }
+        internal int B { get; set; }
+        public void Func2()
+        {
+            return;
+        }
+        public void Func2(int i)
+        {
+            return;
+        }
+        public class Class4
+        {
+            public int Func2()
+            {
+                return 0;
+            }
+        }
+    }
+    
+    namespace Test2.Test3
+    {
+        public class Class5
+        {
+        }
+    }
+
+    public class Class6
+    {
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public int C { get; set; }
+
+        [EditorBrowsable(EditorBrowsableState.Always)]
+        public int D { get; set; }
+    }
+}
+
+";
+            string configFile = "TestData/filterconfig.yml";
+            MetadataItem output = GenerateYamlMetadata(CreateCompilationFromCSharpCode(code), filterConfigFile: configFile);
+            Assert.Equal(2, output.Items.Count);
+            var @namespace = output.Items[0];
+            Assert.NotNull(@namespace);
+            Assert.Equal("Test1", @namespace.Name);
+            Assert.Equal(4, @namespace.Items.Count);
+            {
+                var class1 = @namespace.Items[0];
+                Assert.Equal("Test1.Class1", class1.Name);
+                Assert.Equal(1, class1.Items.Count);
+                var method = class1.Items[0];
+                Assert.Equal("Test1.Class1.Func1(System.Int32)", method.Name);
+            }
+            {
+                var class3 = @namespace.Items[1];
+                Assert.Equal("Test1.Class3", class3.Name);
+                Assert.Equal(2, class3.Items.Count);
+                Assert.Equal("Test1.Class3.Func2", class3.Items[0].Name);
+                Assert.Equal("Test1.Class3.Func2(System.Int32)", class3.Items[1].Name);
+            }
+            {
+                var class4 = @namespace.Items[2];
+                Assert.Equal("Test1.Class3.Class4", class4.Name);
+                Assert.Equal(0, class4.Items.Count);
+            }
+            {
+                var class6 = @namespace.Items[3];
+                Assert.Equal("Test1.Class6", class6.Name);
+                Assert.Equal(1, class6.Items.Count);
+                Assert.Equal("Test1.Class6.D", class6.Items[0].Name);
+            }
+
+            var nestedNamespace = output.Items[1];
+            Assert.NotNull(nestedNamespace);
+            Assert.Equal("Test1.Test2.Test3", nestedNamespace.Name);
+            Assert.Equal(1, nestedNamespace.Items.Count);
+            {
+                var class5 = nestedNamespace.Items[0];
+                Assert.Equal("Test1.Test2.Test3.Class5", class5.Name);
+            }
+        }
+
+        [Fact]
+        public void TestGenereateMetadataWithFieldHasDefaultValue()
+        {
+            string code = @"
+namespace Test1
+{
+    public class Foo
+    {
+        public const ushort Test = 123;
+    }
+}
+";
+            MetadataItem output = GenerateYamlMetadata(CreateCompilationFromCSharpCode(code));
+            Assert.Equal(1, output.Items.Count);
+            {
+                var field = output.Items[0].Items[0].Items[0];
+                Assert.NotNull(field);
+                Assert.Equal(@"public const ushort Test = 123", field.Syntax.Content[SyntaxLanguage.CSharp]);
+            }
+        }
+
         private static Compilation CreateCompilationFromCSharpCode(string code, params MetadataReference[] references)
         {
             return CreateCompilationFromCSharpCode(code, "test.dll", references);
@@ -2228,7 +2367,7 @@ public object Property
         private static Compilation CreateCompilationFromCSharpCode(string code, string assemblyName, params MetadataReference[] references)
         {
             var tree = SyntaxFactory.ParseSyntaxTree(code);
-            var defaultReferences = new List<MetadataReference> { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+            var defaultReferences = new List<MetadataReference> { MetadataReference.CreateFromFile(typeof(object).Assembly.Location), MetadataReference.CreateFromFile(typeof(EditorBrowsableAttribute).Assembly.Location) };
             if (references != null)
             {
                 defaultReferences.AddRange(references);

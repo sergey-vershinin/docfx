@@ -4,8 +4,8 @@
 
 |            | Windows  |
 | ---------- | --------- | ------
-| **master** | [![masterstatus](http://docfx-ci-0.cloudapp.net/app/rest/builds/buildType:(id:DocfxCi_MasterBranch)/statusIcon)](http://docfx-ci-0.cloudapp.net/viewType.html?buildTypeId=DocfxCi_MasterBranch)
-| **dev**    | [![devstatus](http://docfx-ci-0.cloudapp.net/app/rest/builds/buildType:(id:DocfxCi_DocfxCiForDevBranch)/statusIcon)](http://docfx-ci-0.cloudapp.net/viewType.html?buildTypeId=DocfxCi_DocfxCiForDevBranch)
+| **master** | [![masterstatus](http://docfx-ci-0.cloudapp.net/app/rest/builds/buildType:(id:DocfxCiWithScripts_DocfxCiForMasterBranch)/statusIcon)](http://docfx-ci-0.cloudapp.net/viewType.html?buildTypeId=DocfxCiWithScripts_DocfxCiForMasterBranch)
+| **dev**    | [![devstatus](http://docfx-ci-0.cloudapp.net/app/rest/builds/buildType:(id:DocfxCiWithScripts_DocfxCiForDevBranch)/statusIcon)](http://docfx-ci-0.cloudapp.net/viewType.html?buildTypeId=DocfxCiWithScripts_DocfxCiForDevBranch)
 
 ## What is it?
 *DocFX* makes it extremely easy to generate your developer hub with API reference, landing page, and how-to.

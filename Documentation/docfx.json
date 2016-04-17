@@ -4,7 +4,7 @@
       "src": [
         {
           "files": [ "**/*.csproj" ],
-          "exclude": [ "**/bin/**", "**/obj/**" ],
+          "exclude": [ "**/bin/**", "**/obj/**", "**/Microsoft.DocAsCode.EntityModel.csproj" ],
           "cwd": "../src"
         }
       ],
@@ -23,15 +23,13 @@
         "src": ".."
       },
       {
-        "files": [ "tutorial/**/*.md", "spec/**/*.md", "index.md", "guideline/**/*.md" ]
-      },
-      {
-        "files": [ "toc.yml" ]
+        "files": [ "tutorial/**/*.{md,yml}", "spec/**/*.{md,yml}", "*.{md,yml}", "guideline/**/*.{md,yml}" ]
       }
     ],
     "resource": [
       {
-        "files": [ "spec/images/**", "tutorial/artifacts/**", "tutorial/images/**", "codesnippet/**" ]
+        "files": [ "**/images/**", "**/artifacts/**", "codesnippet/**" ],
+        "exclude": [ "_site/**", "**/obj/**", "**.meta" ]
       }
     ],
     "overwrite": "apispec/*.md",

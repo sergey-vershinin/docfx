@@ -14,7 +14,7 @@ function transform(model, _attrs) {
         }
     }
     var _fileNameWithoutExt = getFileNameWithoutExtension(_attrs._path);
-    vm._jsonPath = _fileNameWithoutExt + ".json";
+    vm._jsonPath = _fileNameWithoutExt + ".swagger.json";
     vm._disableToc = vm._disableToc || !vm._tocPath || (vm._navPath === vm._tocPath);
     vm.title = vm.title || vm.name;
 
@@ -25,6 +25,9 @@ function transform(model, _attrs) {
         for (var i = 0; i < vm.children.length; i++) {
             var child = vm.children[i];
             child.docurl = child.docurl || getImproveTheDocHref(child, vm.newFileRepository);
+            if (child.operation) {
+                child.operation = child.operation.toUpperCase();
+            }
             child.sourceurl = child.sourceurl || getViewSourceHref(child);
             child.conceptual = child.conceptual || ''; // set to empty incase mustache looks up
             child.footer = child.footer || ''; // set to empty incase mustache looks up
@@ -36,8 +39,9 @@ function transform(model, _attrs) {
             }
             vm.children[i] = transformReference(vm.children[i]);
         };
-        if (vm._displayItems) {
-            vm.children = ordered;
+        if (vm.sections) {
+            // Remove empty values from ordered, in case item in sections is not in swagger json 
+            vm.children = ordered.filter(function(o){ return o; });
         }
     }
 
@@ -81,10 +85,9 @@ function transform(model, _attrs) {
             for (var key in obj.properties) {
                 if (obj.properties.hasOwnProperty(key)) {
                     var value = obj.properties[key];
-                    if (!value.description) {
-                        // set description to null incase mustache looks up
-                        value.description = null;
-                    }
+                    // set description to null incase mustache looks up
+                    value.description = value.description || null;
+
                     value = transformPropertiesValue(value);
                     array.push({key:key, value:value});
                 }
@@ -95,7 +98,8 @@ function transform(model, _attrs) {
     }
 
     function transformPropertiesValue(obj) {
-        if (obj.type === "array" && obj.items && obj.items.properties) {
+        if (obj.type === "array" && obj.items) {
+            obj.items.properties = obj.items.properties || null;
             obj.items = transformProperties(obj.items);
         }
         return obj;
@@ -168,7 +172,7 @@ function transform(model, _attrs) {
                 repo = repo.substr(0, repo.length - 4);
             }
             var linenum = startLine ? startLine : 0;
-            if (/https:\/\/.*\.visualstudio\.com\/.*/gi.test(reop)) {
+            if (/https:\/\/.*\.visualstudio\.com\/.*/gi.test(repo)) {
                 // TODO: line not working for vso
                 return repo + '#path=/' + remote.path;
             }

@@ -359,6 +359,73 @@ break list!
             @"a\<b <span>c</span>",
             @"<p>a&lt;b <span>c</span></p>
 ")]
+        [InlineData(
+            @"***A***",
+            @"<p><strong><em>A</em></strong></p>
+")]
+        [InlineData(
+            @"***A*B**",
+            @"<p><strong><em>A</em>B</strong></p>
+")]
+        [InlineData(
+            @"***A**B*",
+            @"<p><em>**A</em><em>B</em></p>
+")]
+        [InlineData(
+            @"***A*****B*****C***",
+            @"<p><strong><em>A</em></strong><strong>B</strong><strong><em>C</em></strong></p>
+")]
+        [InlineData(
+            @"****A****",
+            @"<p>*<strong><em>A</em></strong>*</p>
+")]
+        [InlineData(
+            @"***A*B **  C***",
+            @"<p><strong><em>A</em>B **  C</strong>*</p>
+")]
+        [InlineData(
+            @"**A*B***",
+            @"<p><strong>A*B</strong>*</p>
+")]
+        [InlineData(
+            @"*A**B***",
+            @"<p><em>A</em><em>B</em>**</p>
+")]
+        [InlineData(
+            @"***A*B*C*D**",
+            @"<p><strong><em>A</em>B<em>C</em>D</strong></p>
+")]
+        [InlineData(
+            @"***A*B
+**  C***",
+            @"<p><strong><em>A</em>B
+**  C</strong>*</p>
+")]
+        [InlineData(
+            @"a**************",
+            @"<p>a**************</p>
+")]
+        [InlineData(
+            @"a* A*",
+            @"<p>a* A*</p>
+")]
+        [InlineData(
+            @"* A
+* B
+
+
+1. C
+2. D
+",
+            @"<ul>
+<li>A</li>
+<li>B</li>
+</ul>
+<ol>
+<li>C</li>
+<li>D</li>
+</ol>
+")]
         #endregion
         public void TestGfmInGeneral(string source, string expected)
         {
@@ -431,6 +498,18 @@ https://en.wikipedia.org/wiki/Draft:Microsoft_SQL_Server_Libraries/Drivers
             var expected = @"<!--
 https://en.wikipedia.org/wiki/Draft:Microsoft_SQL_Server_Libraries/Drivers
 -->";
+            TestGfmInGeneral(source, expected);
+        }
+
+        [Fact]
+        [Trait("Related", "Markdown")]
+        public void TestGfmBuilder_CodeTag()
+        {
+            var source = @"<pre><code>//*************************************************
+        // Test!
+        //*************************************************</code></pre>
+";
+            var expected = source;
             TestGfmInGeneral(source, expected);
         }
 

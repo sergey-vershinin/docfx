@@ -5,6 +5,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.Immutable;
     using System.Diagnostics;
     using System.Linq;
     using System.Text.RegularExpressions;
@@ -22,17 +23,18 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
         private static readonly IReadOnlyList<string> EmptyListOfString = new string[0];
         private readonly YamlModelGenerator _generator;
         private Dictionary<string, ReferenceItem> _references;
-        public bool _preserveRawInlineComments;
+        private bool _preserveRawInlineComments;
 
         #endregion
 
         #region Constructor
 
-        public SymbolVisitorAdapter(YamlModelGenerator generator, SyntaxLanguage language, bool preserveRawInlineComments = false)
+        public SymbolVisitorAdapter(YamlModelGenerator generator, SyntaxLanguage language, bool preserveRawInlineComments = false, string filterConfigFile = null)
         {
             _generator = generator;
             Language = language;
             _preserveRawInlineComments = preserveRawInlineComments;
+            FilterVisitor = string.IsNullOrEmpty(filterConfigFile) ? new DefaultFilterVisitor() : new DefaultFilterVisitor().WithConfig(filterConfigFile).WithCache();
         }
 
         #endregion
@@ -41,13 +43,15 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
 
         public SyntaxLanguage Language { get; private set; }
 
+        public IFilterVisitor FilterVisitor { get; private set; }
+
         #endregion
 
         #region Overrides
 
         public override MetadataItem DefaultVisit(ISymbol symbol)
         {
-            if (!VisitorHelper.CanVisit(symbol))
+            if (!FilterVisitor.CanVisitApi(symbol))
             {
                 return null;
             }
@@ -126,7 +130,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
             item.Items = VisitDescendants(
                 namespaces,
                 ns => ns.GetMembers().OfType<INamespaceSymbol>(),
-                ns => ns.GetMembers().OfType<INamedTypeSymbol>().Any(t => VisitorHelper.CanVisit(t)));
+                ns => ns.GetMembers().OfType<INamedTypeSymbol>().Any(t => FilterVisitor.CanVisitApi(t)));
             item.References = _references;
             return item;
         }
@@ -201,6 +205,9 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
             }
 
             AddReference(symbol);
+
+            item.Attributes = GetAttributeInfo(symbol.GetAttributes());
+
             return item;
         }
 
@@ -248,6 +255,9 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
             {
                 result.Overridden = AddSpecReference(symbol.OverriddenMethod, typeGenericParameters, methodGenericParameters);
             }
+
+            result.Attributes = GetAttributeInfo(symbol.GetAttributes());
+
             return result;
         }
 
@@ -270,7 +280,12 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
             _generator.GenerateField(symbol, result, this);
 
             var typeGenericParameters = symbol.ContainingType.IsGenericType ? symbol.ContainingType.Accept(TypeGenericParameterNameVisitor.Instance) : EmptyListOfString;
-            AddSpecReference(symbol.Type, typeGenericParameters);
+
+            var id = AddSpecReference(symbol.Type, typeGenericParameters);
+            result.Syntax.Return = VisitorHelper.GetParameterDescription(symbol, result, id, true, GetTripleSlashCommentParserContext(result, _preserveRawInlineComments));
+            Debug.Assert(result.Syntax.Return.Type != null);
+
+            result.Attributes = GetAttributeInfo(symbol.GetAttributes());
 
             return result;
         }
@@ -300,7 +315,11 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
                 result.Overridden = AddSpecReference(symbol.OverriddenEvent, typeGenericParameters);
             }
 
-            AddSpecReference(symbol.Type, typeGenericParameters);
+            var id = AddSpecReference(symbol.Type, typeGenericParameters);
+            result.Syntax.Return = VisitorHelper.GetParameterDescription(symbol, result, id, true, GetTripleSlashCommentParserContext(result, _preserveRawInlineComments));
+            Debug.Assert(result.Syntax.Return.Type != null);
+
+            result.Attributes = GetAttributeInfo(symbol.GetAttributes());
 
             return result;
         }
@@ -350,6 +369,8 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
             }
 
             _generator.GenerateProperty(symbol, result, this);
+
+            result.Attributes = GetAttributeInfo(symbol.GetAttributes());
 
             return result;
         }
@@ -547,7 +568,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
                 if (symbol.AllInterfaces.Length > 0)
                 {
                     item.Implements = (from t in symbol.AllInterfaces
-                                       where VisitorHelper.CanVisit(t)
+                                       where FilterVisitor.CanVisitApi(t)
                                        select AddSpecReference(t, typeParamterNames)).ToList();
                     if (item.Implements.Count == 0)
                     {
@@ -576,7 +597,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
         {
             foreach (var m in from m in type.GetMembers()
                               where !(m is INamedTypeSymbol)
-                              where VisitorHelper.CanVisit(m, symbol == type || !symbol.IsSealed || symbol.TypeKind != TypeKind.Struct)
+                              where FilterVisitor.CanVisitApi(m, symbol == type || !symbol.IsSealed || symbol.TypeKind != TypeKind.Struct)
                               where IsInheritable(m)
                               select m)
             {
@@ -594,6 +615,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
             {
                 var id = AddSpecReference(symbol.ReturnType, typeGenericParameters, methodGenericParameters);
                 result.Syntax.Return = VisitorHelper.GetParameterDescription(symbol, result, id, true, GetTripleSlashCommentParserContext(result, _preserveRawInlineComments));
+                result.Syntax.Return.Attributes = GetAttributeInfo(symbol.GetReturnTypeAttributes());
             }
 
             if (symbol.Parameters.Length > 0)
@@ -608,6 +630,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
                     var id = AddSpecReference(p.Type, typeGenericParameters, methodGenericParameters);
                     var param = VisitorHelper.GetParameterDescription(p, result, id, false, GetTripleSlashCommentParserContext(result, _preserveRawInlineComments));
                     Debug.Assert(param.Type != null);
+                    param.Attributes = GetAttributeInfo(p.GetAttributes());
                     result.Syntax.Parameters.Add(param);
                 }
             }
@@ -622,6 +645,133 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
                 PreserveRawInlineComments = preserve,
                 Source = item.Source
             };
+        }
+
+        private List<AttributeInfo> GetAttributeInfo(ImmutableArray<AttributeData> attributes)
+        {
+            if (attributes.Length == 0)
+            {
+                return null;
+            }
+            var result =
+                (from attr in attributes
+                 where !(attr.AttributeClass is IErrorTypeSymbol)
+                 where FilterVisitor.CanVisitAttribute(attr.AttributeConstructor)
+                 select new AttributeInfo
+                 {
+                     Type = AddSpecReference(attr.AttributeClass),
+                     Constructor = AddSpecReference(attr.AttributeConstructor),
+                     Arguments = GetArguments(attr),
+                     NamedArguments = GetNamedArguments(attr)
+                 } into attr
+                 where attr.Arguments != null
+                 select attr).ToList();
+            if (result.Count == 0)
+            {
+                return null;
+            }
+            return result;
+        }
+
+        private List<ArgumentInfo> GetArguments(AttributeData attr)
+        {
+            var result = new List<ArgumentInfo>();
+            foreach (var arg in attr.ConstructorArguments)
+            {
+                var argInfo = GetArgumentInfo(arg);
+                if (argInfo == null)
+                {
+                    return null;
+                }
+                result.Add(argInfo);
+            }
+            return result;
+        }
+
+        private ArgumentInfo GetArgumentInfo(TypedConstant arg)
+        {
+            var result = new ArgumentInfo();
+            if (arg.Type.TypeKind == TypeKind.Array)
+            {
+                // todo : value of array.
+                return null;
+            }
+            if (arg.Value != null)
+            {
+                var type = arg.Value as INamedTypeSymbol;
+                if (type != null)
+                {
+                    if (!FilterVisitor.CanVisitApi(type))
+                    {
+                        return null;
+                    }
+                }
+                result.Value = GetConstantValueForArgumentInfo(arg);
+            }
+            result.Type = AddSpecReference(arg.Type);
+            return result;
+        }
+
+        private object GetConstantValueForArgumentInfo(TypedConstant arg)
+        {
+            var type = arg.Value as INamedTypeSymbol;
+            if (type != null)
+            {
+                return AddSpecReference(type);
+            }
+
+            switch (Convert.GetTypeCode(arg.Value))
+            {
+                case TypeCode.UInt32:
+                case TypeCode.Int64:
+                case TypeCode.UInt64:
+                    // work around: yaml cannot deserialize them.
+                    return arg.Value.ToString();
+                default:
+                    return arg.Value;
+            }
+        }
+
+        private List<NamedArgumentInfo> GetNamedArguments(AttributeData attr)
+        {
+            var result =
+                (from pair in attr.NamedArguments
+                 select GetNamedArgumentInfo(pair) into namedArgument
+                 where namedArgument != null
+                 select namedArgument).ToList();
+            if (result.Count == 0)
+            {
+                return null;
+            }
+            return result;
+        }
+
+        private NamedArgumentInfo GetNamedArgumentInfo(KeyValuePair<string, TypedConstant> pair)
+        {
+            var result = new NamedArgumentInfo
+            {
+                Name = pair.Key,
+            };
+            var arg = pair.Value;
+            if (arg.Type.TypeKind == TypeKind.Array)
+            {
+                // todo : value of array.
+                return null;
+            }
+            else if (arg.Value != null)
+            {
+                var type = arg.Value as INamedTypeSymbol;
+                if (type != null)
+                {
+                    if (!FilterVisitor.CanVisitApi(type))
+                    {
+                        return null;
+                    }
+                }
+                result.Value = GetConstantValueForArgumentInfo(arg);
+            }
+            result.Type = AddSpecReference(arg.Type);
+            return result;
         }
 
         private Action<string> GetAddReferenceDelegate(MetadataItem item)

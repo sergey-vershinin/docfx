@@ -8,46 +8,45 @@ namespace Microsoft.DocAsCode.Build.Engine
     using System.IO;
     using System.Text.RegularExpressions;
 
-    using Jint;
-
     using Microsoft.DocAsCode.Common;
     using Microsoft.DocAsCode.Utility;
 
     public class Template
     {
+        private const string Primary = ".primary";
+        private const string Auxiliary = ".aux";
         private static readonly Regex IsRegexPatternRegex = new Regex(@"^\s*/(.*)/\s*$", RegexOptions.Compiled);
         private readonly object _locker = new object();
         private readonly ResourcePoolManager<ITemplateRenderer> _rendererPool = null;
 
-        private readonly ResourcePoolManager<Engine> _enginePool = null;
+        private readonly ResourcePoolManager<ITemplatePreprocessor> _preprocessorPool = null;
         private readonly string _script;
 
         public string Name { get; }
         public string ScriptName { get; }
         public string Extension { get; }
         public string Type { get; }
-        public bool IsPrimary { get; }
+        public TemplateType TemplateType { get; }
         public IEnumerable<TemplateResourceInfo> Resources { get; }
 
-        public Template(string template, string templateName, string script, ResourceCollection resourceCollection)
+        public Template(string template, string templateName, string script, ResourceCollection resourceCollection, int maxParallelism)
         {
             if (string.IsNullOrEmpty(templateName)) throw new ArgumentNullException(nameof(templateName));
-            if (string.IsNullOrEmpty(template)) throw new ArgumentNullException(nameof(template));
             Name = templateName;
-            var typeAndExtension = GetTemplateTypeAndExtension(templateName);
-            Extension = typeAndExtension.Item2;
-            Type = typeAndExtension.Item1;
-            IsPrimary = typeAndExtension.Item3;
+            var templateInfo = GetTemplateInfo(templateName);
+            Extension = templateInfo.Extension;
+            Type = templateInfo.DocumentType;
+            TemplateType = templateInfo.TemplateType;
             _script = script;
-            if (script != null)
+            if (!string.IsNullOrWhiteSpace(script))
             {
                 ScriptName = templateName + ".js";
-                _enginePool = ResourcePool.Create(() => CreateEngine(script), 4); // todo : set parallelism.
+                _preprocessorPool = ResourcePool.Create(() => CreatePreprocessor(script), maxParallelism);
             }
 
-            if (resourceCollection != null)
+            if (!string.IsNullOrEmpty(template) && resourceCollection != null)
             {
-                _rendererPool = ResourcePool.Create(() => CreateRenderer(resourceCollection, templateName, template), 4); // todo : set parallelism.
+                _rendererPool = ResourcePool.Create(() => CreateRenderer(resourceCollection, templateName, template), maxParallelism);
             }
 
             Resources = ExtractDependentResources();
@@ -62,8 +61,11 @@ namespace Microsoft.DocAsCode.Build.Engine
         /// <returns>The view model</returns>
         public object TransformModel(object model, object attrs, object global)
         {
-            if (_enginePool == null) return model;
-            return ProcessWithJint(model, attrs, global);
+            if (_preprocessorPool == null) return model;
+            using (var lease = _preprocessorPool.Rent())
+            {
+                return lease.Resource.Process(model, attrs, global);
+            }
         }
 
         /// <summary>
@@ -81,40 +83,38 @@ namespace Microsoft.DocAsCode.Build.Engine
             }
         }
 
-        private object ProcessWithJint(object model, object attrs, object global)
-        {
-            var argument1 = JintProcessorHelper.ConvertStrongTypeToJsValue(model);
-            var argument2 = JintProcessorHelper.ConvertStrongTypeToJsValue(attrs);
-            var argument3 = JintProcessorHelper.ConvertStrongTypeToJsValue(global);
-            using (var lease = _enginePool.Rent())
-            {
-                return lease.Resource.Invoke("transform", argument1, argument2, argument3).ToObject();
-            }
-        }
-
         private string GetRelativeResourceKey(string relativePath)
         {
             // Make sure resource keys are combined using '/'
             return Path.GetDirectoryName(this.Name).ToNormalizedPath().ForwardSlashCombine(relativePath);
         }
 
-        private static Tuple<string, string, bool> GetTemplateTypeAndExtension(string templateName)
+        private static TemplateInfo GetTemplateInfo(string templateName)
         {
             // Remove folder and .tmpl
             templateName = Path.GetFileNameWithoutExtension(templateName);
             var splitterIndex = templateName.IndexOf('.');
-            if (splitterIndex < 0) return Tuple.Create(templateName, string.Empty, false);
+            if (splitterIndex < 0)
+            {
+                return new TemplateInfo(templateName, string.Empty, TemplateType.Default);
+            }
+
             var type = templateName.Substring(0, splitterIndex);
             var extension = templateName.Substring(splitterIndex);
-            var isPrimary = false;
-            if (extension.EndsWith(".primary"))
+            TemplateType templateType = TemplateType.Default;
+            if (extension.EndsWith(Primary))
             {
-                isPrimary = true;
-                extension = extension.Substring(0, extension.Length - 8);
+                templateType = TemplateType.Primary;
+                extension = extension.Substring(0, extension.Length - Primary.Length);
             }
-            return Tuple.Create(type, extension, isPrimary);
-        }
+            else if (extension.EndsWith(Auxiliary))
+            {
+                templateType = TemplateType.Auxiliary;
+                extension = extension.Substring(0, extension.Length - Auxiliary.Length);
+            }
 
+            return new TemplateInfo(type, extension, templateType);
+        }
 
         /// <summary>
         /// Dependent files are defined in following syntax in Mustache template leveraging Mustache Comments
@@ -148,19 +148,9 @@ namespace Microsoft.DocAsCode.Build.Engine
             }
         }
 
-        private static Engine CreateEngine(string script)
+        private static ITemplatePreprocessor CreatePreprocessor(string script)
         {
-            if (string.IsNullOrEmpty(script)) throw new ArgumentNullException(nameof(script));
-            var engine = new Engine();
-
-            engine.SetValue("console", new
-            {
-                log = new Action<object>(Logger.Log)
-            });
-
-            // throw exception when execution fails
-            engine.Execute(script);
-            return engine;
+            return new TemplateJintPreprocessor(script);
         }
 
         private static ITemplateRenderer CreateRenderer(ResourceCollection resourceCollection, string templateName, string template)
@@ -173,6 +163,20 @@ namespace Microsoft.DocAsCode.Build.Engine
             else
             {
                 return new MustacheTemplateRenderer(resourceCollection, template);
+            }
+        }
+
+        private sealed class TemplateInfo
+        {
+            public string DocumentType { get; }
+            public string Extension { get; }
+            public TemplateType TemplateType { get; }
+
+            public TemplateInfo(string documentType, string extension, TemplateType type)
+            {
+                DocumentType = documentType;
+                Extension = extension;
+                TemplateType = type;
             }
         }
     }

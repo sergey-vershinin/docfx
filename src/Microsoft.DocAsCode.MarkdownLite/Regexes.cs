@@ -22,7 +22,8 @@ namespace Microsoft.DocAsCode.MarkdownLite
             public static readonly Regex Heading = new Regex(@"^ *(#{1,6}) *([^\n]+?) *#* *(?:\n+|$)", RegexOptionCompiled);
             public static readonly Regex LHeading = new Regex(@"^([^\n]+)\n *(=|-){2,} *(?:\n+|$)", RegexOptionCompiled);
             public static readonly Regex Blockquote = new Regex(@"^( *>[^\n]+(\n(?! *\[([^\]]+)\]: *<?([^\s>]+)>?(?: +[""(]([^\n]+)["")])? *(?:\n+|$))[^\n]+)*\n*)+", RegexOptionCompiled);
-            public static readonly Regex List = new Regex(@"^( *)((?:[*+-]|\d+\.)) [\s\S]+?(?:\n+(?=([^\n]+)\n(=|-){2,} *(?:\n+|$))|\n+(?=\1?(?:[-*_] *){3,}(?:\n+|$))|\n+(?=\[([^\]]+)\]: *<?([^\s>]+)>?(?: +[""(]([^\n]+)["")])? *(?:\n+|$))|\n{2,}(?! )(?!\s*\1(?:[*+-]|\d+\.) )\n*|\s*$)", RegexOptionCompiled);
+            public static readonly Regex OrderList = new Regex(@"^( *)([*+-]) [\s\S]+?(?:\n+(?=([^\n]+)\n(=|-){2,} *(?:\n+|$))|\n+(?=\1?(?:[-*_] *){3,}(?:\n+|$))|\n+(?=\[([^\]]+)\]: *<?([^\s>]+)>?(?: +[""(]([^\n]+)["")])? *(?:\n+|$))|\n{2,}(?! )(?!\s*\1([*+-]) )\n*|\s*$)", RegexOptionCompiled);
+            public static readonly Regex UnorderList = new Regex(@"^( *)(\d+\.) [\s\S]+?(?:\n+(?=([^\n]+)\n(=|-){2,} *(?:\n+|$))|\n+(?=\1?(?:[-*_] *){3,}(?:\n+|$))|\n+(?=\[([^\]]+)\]: *<?([^\s>]+)>?(?: +[""(]([^\n]+)["")])? *(?:\n+|$))|\n{2,}(?! )(?!\s*\1(\d+\.) )\n*|\s*$)", RegexOptionCompiled);
             public static readonly Regex Html = new Regex(@"^ *(?:<!--[\s\S]*?-->|<((?!(?:a|em|strong|small|s|cite|q|dfn|abbr|data|time|code|var|samp|kbd|sub|sup|i|b|u|mark|ruby|rt|rp|bdi|bdo|span|br|wbr|ins|del|img)\b)\w+(?!:\/|[^\w\s@]*@)\b)[\s\S]+?<\/\1>|<(?!(?:a|em|strong|small|s|cite|q|dfn|abbr|data|time|code|var|samp|kbd|sub|sup|i|b|u|mark|ruby|rt|rp|bdi|bdo|span|br|wbr|ins|del|img)\b)\w+(?!:\/|[^\w\s@]*@)\b(?:""[^""]*""|'[^']*'|[^'"">])*?>) *(?:\n{2,}|\s*$)", RegexOptionCompiled);
             public static readonly Regex Def = new Regex(@"^ *\[([^\]]+)\]: *<?([^\s>]+)>?(?: +[""(]([^\n]+)["")])? *(?:\n+|$)", RegexOptionCompiled);
             public static readonly Regex Paragraph = new Regex(@"^((?:[^\n]+\n?(?!( *[-*_]){3,} *(?:\n+|$)| *(#{1,6}) *([^\n]+?) *#* *(?:\n+|$)|([^\n]+)\n *(=|-){2,} *(?:\n+|$)|( *>[^\n]+(\n(?! *\[([^\]]+)\]: *<?([^\s>]+)>?(?: +[""(]([^\n]+)["")])? *(?:\n+|$))[^\n]+)*\n*)+|<(?!(?:a|em|strong|small|s|cite|q|dfn|abbr|data|time|code|var|samp|kbd|sub|sup|i|b|u|mark|ruby|rt|rp|bdi|bdo|span|br|wbr|ins|del|img)\b)\w+(?!:\/|[^\w\s@]*@)\b| *\[([^\]]+)\]: *<?([^\s>]+)>?(?: +[""(]([^\n]+)["")])? *(?:\n+|$)))+)\n*", RegexOptionCompiled);
@@ -49,6 +50,7 @@ namespace Microsoft.DocAsCode.MarkdownLite
             public static readonly Regex Escape = new Regex(@"^\\([\\`*{}\[\]()#+\-.!_>])", RegexOptionCompiled);
             public static readonly Regex Comment = new Regex(@"^<!--[\s\S]*?-->", RegexOptionCompiled);
             public static readonly Regex AutoLink = new Regex(@"^<([^ >]+(@|:\/)[^ >]+)>", RegexOptionCompiled);
+            public static readonly Regex CodeElement = new Regex(@"^\<code\>[\s\S]*?\</code\>", RegexOptionCompiled | RegexOptions.IgnoreCase);
             public static readonly Regex Tag = new Regex(@"^<\/?\w+(?:""[^""]*""|'[^']*'|[^'"">])*?>", RegexOptionCompiled);
             /// <summary>
             /// <![CDATA[
@@ -104,6 +106,9 @@ namespace Microsoft.DocAsCode.MarkdownLite
                 public static readonly Regex Escape = new Regex(@"^\\([\\`*{}\[\]()#+\-.!_>~|])", RegexOptionCompiled);
                 public static readonly Regex Url = new Regex(@"^(https?:\/\/[^\s<]+[^<.,:;""')\]\s])", RegexOptionCompiled);
                 public static readonly Regex Del = new Regex(@"^~~(?=\S)([\s\S]*?\S)~~", RegexOptionCompiled);
+                public static readonly Regex StrongEm = new Regex(@"^(\**?)\*{3}(?!\*)(?=\S)([\s\S]*?\S)\*([\s\S]*?(?<=\S))?\*{2}", RegexOptionCompiled);
+                public static readonly Regex Strong = new Regex(@"^__([\s\S]+?)__(?!_)|^\*{2}(?!\*)(?=\S)([\s\S]*?\S)?\*{2}", RegexOptionCompiled);
+                public static readonly Regex Em = new Regex(@"^\b_((?:__|[\s\S])+?)_\b|^\*((?:\*\*|\S[\s\S]*?))(?<!\*)\*", RegexOptionCompiled);
                 public static readonly Regex Text = new Regex(@"^[\s\S]+?(?=[\\<!\[_*`~]|https?:\/\/| {2,}\n|$)", RegexOptionCompiled);
             }
 

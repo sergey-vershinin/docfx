@@ -75,9 +75,19 @@ function groupChildren(model, typeChildrenItems) {
     if (!grouped.hasOwnProperty(type)) {
       grouped[type] = [];
     }
+    // special handle for field
+    if (type === "field" && c.syntax) {
+      c.syntax.fieldValue = c.syntax.return;
+      c.syntax.return = undefined;
+    }
     // special handle for property
     if (type === "property" && c.syntax) {
       c.syntax.propertyValue = c.syntax.return;
+      c.syntax.return = undefined;
+    }
+    // special handle for event
+    if (type === "event" && c.syntax) {
+      c.syntax.eventType = c.syntax.return;
       c.syntax.return = undefined;
     }
     grouped[type].push(c);
@@ -108,10 +118,11 @@ function handleItem(vm) {
   vm.docurl = getImproveTheDocHref(vm);
   vm.sourceurl = getViewSourceHref(vm);
 
-  // fill "null" if key not existed
+  // fill "undefined" if key not existed
   vm.summary = vm.summary;
   vm.remarks = vm.remarks;
   vm.conceptual = vm.conceptual;
+  vm.syntax = vm.syntax;
 
   if (vm.supported_platforms) {
       vm.supported_platforms = transformDictionaryToArray(vm.supported_platforms);

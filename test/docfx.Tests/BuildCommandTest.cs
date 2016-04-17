@@ -7,21 +7,23 @@ namespace Microsoft.DocAsCode.Tests
     using System.Collections.Generic;
     using System.IO;
 
-    using Microsoft.DocAsCode.SubCommands;
     using Xunit;
 
+    using Microsoft.DocAsCode.SubCommands;
+    using Microsoft.DocAsCode.Tests.Common;
+
     [Collection("docfx STA")]
-    public class BuildCommandTest : IClassFixture<BuildCommandFixture>
+    public class BuildCommandTest : TestBase
     {
         private string _outputFolder;
         private string _inputFolder;
         private string _templateFolder;
 
-        public BuildCommandTest(BuildCommandFixture fixture)
+        public BuildCommandTest()
         {
-            _outputFolder = fixture.OutputFolder;
-            _inputFolder = fixture.InputFolder;
-            _templateFolder = fixture.TemplateFolder;
+            _outputFolder = GetRandomFolder();
+            _inputFolder = GetRandomFolder();
+            _templateFolder = GetRandomFolder();
         }
 
         /// <summary>
@@ -72,7 +74,6 @@ namespace Microsoft.DocAsCode.Tests
                     "  c: e",
                     "---",
                     "# Hello World",
-                    "Test XRef Shortcut: [Xref](@xref1 \"shortcut\")",
                     "Test XRef: [](xref:xref1)",
                     "Test XRef auto link: <xref:xref1>",
                     "Test link: [link text](test1.md)",
@@ -109,8 +110,7 @@ namespace Microsoft.DocAsCode.Tests
                 {
                     "",
                     "<h1 id=\"hello-world\">Hello World</h1>",
-                    "<p>Test XRef Shortcut: <a class=\"xref\" href=\"test1.html#xref1\" title=\"shortcut\">Xref</a>",
-                    "Test XRef: <a class=\"xref\" href=\"test1.html#xref1\">Hello Test1</a>",
+                    "<p>Test XRef: <a class=\"xref\" href=\"test1.html#xref1\">Hello Test1</a>",
                     "Test XRef auto link: <a class=\"xref\" href=\"test1.html#xref1\">Hello Test1</a>",
                     "Test link: <a href=\"test1.html\">link text</a></p>",
                     "<p><p>",

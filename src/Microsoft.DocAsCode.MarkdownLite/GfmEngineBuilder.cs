@@ -46,12 +46,14 @@ namespace Microsoft.DocAsCode.MarkdownLite
             builder.Add(new MarkdownCommentInlineRule());
             builder.Add(new MarkdownAutoLinkInlineRule());
             builder.Add(new GfmUrlInlineRule());
+            builder.Add(new MarkdownCodeElementInlineRule());
             builder.Add(new MarkdownTagInlineRule());
             builder.Add(new MarkdownLinkInlineRule());
             builder.Add(new MarkdownRefLinkInlineRule());
             builder.Add(new MarkdownNoLinkInlineRule());
-            builder.Add(new MarkdownStrongInlineRule());
-            builder.Add(new MarkdownEmInlineRule());
+            builder.Add(new GfmStrongEmInlineRule());
+            builder.Add(new GfmStrongInlineRule());
+            builder.Add(new GfmEmInlineRule());
             builder.Add(new MarkdownCodeInlineRule());
             builder.Add(new MarkdownBrInlineRule());
             builder.Add(new GfmDelInlineRule());
